@@ -1,0 +1,932 @@
+
+<!DOCTYPE html>
+<html lang=""en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Periodic Table Explorer</title>title>
+<style>
+  body {
+    font-family: monospace;
+    background: #ffffff;
+    c</style></title></head></html>"olor: #000000;
+    margin: 10px;
+  }
+
+  h1 {
+    font-size: 20px;
+    margin: 0 0 6px 0;
+  }
+
+  header {
+    margin-bottom: 10px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  #table {
+    display: grid;
+    grid-template-columns: repeat(18, 54px);
+    grid-template-rows: repeat(7, 54px) 10px repeat(2, 54px);
+    gap: 0;
+  }
+
+  .cell {
+    border: 2px solid #000000;
+    margin: -1px;
+    padding: 0 1px;
+    font-size: 10px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .cell.selected {
+    outline: 3px solid red;
+  }
+
+  .cell.dim {
+    opacity: 0.25;
+  }
+
+  .num,
+  .mass {
+    display: block;
+  }
+
+  .sym {
+    display: block;
+    font-size: 16px;
+  }
+
+  .name {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .placeholder {
+    border: 2px dashed #000000;
+    font-size: 10px;
+    padding: 2px;
+  }
+
+  .preview {
+    grid-row: 1 / 4;
+    grid-column: 3 / 13;
+    padding: 4px;
+  }
+
+  .preview-sym {
+    display: inline-block;
+    border: 2px solid #000000;
+    font-size: 22px;
+    padding: 2px 6px;
+  }
+
+  .preview-name {
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .legend {
+    margin: 8px 0;
+  }
+
+  .chip {
+    font-family: monospace;
+    font-size: 12px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0 10px 2px 0;
+    color: #000000;
+    cursor: pointer;
+  }
+
+  .chip.active {
+    font-weight: bold;
+    text-decoration: underline;
+  }
+
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1px solid #000000;
+    margin-right: 4px;
+  }
+
+  .details {
+    border-top: 2px solid #000000;
+    padding-top: 6px;
+    max-width: 900px;
+  }
+
+  .details-head {
+    display: block;
+  }
+
+  .big-sym {
+    width: 70px;
+    height: 70px;
+    border: 2px solid #000000;
+    margin-bottom: 4px;
+  }
+
+  .big-sym .num {
+    font-size: 12px;
+  }
+
+  .big-sym .sym {
+    font-size: 34px;
+  }
+
+  .details h2 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+  }
+
+  .details h3 {
+    font-size: 14px;
+    text-decoration: underline;
+    margin: 14px 0 4px 0;
+  }
+
+  .fact {
+    margin: 0;
+  }
+
+  .props {
+    margin: 0;
+  }
+
+  .props div {
+    padding: 1px 0;
+  }
+
+  dt {
+    display: inline;
+    font-weight: bold;
+  }
+
+  dt::after {
+    content: ": ";
+  }
+
+  dd {
+    display: inline;
+    margin: 0;
+  }
+
+  .nav {
+    margin-top: 10px;
+  }
+
+  .nav button {
+    font-family: monospace;
+  }
+
+  footer {
+    font-size: 11px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Periodic Table Explorer</h1>h1>
+  <div class="controls">
+    <input id="search" type="text" placeholder="Search">
+    <select id="mode">
+      <option value="category">Category</option>option>
+      <option value="block">Block</option>option>
+      <option value="phase">Phase</option>option>
+      <option value="electronegativity">Electronegativity</option>option>
+      <option value="density">Density</option>option>
+      <option value="melting">Melting point</option>option>
+      <option value="era">Discovery era</option>option>
+    </select>select>
+  </div>div>
+</header>header>
+
+<main>
+  <div class="table-wrap">
+    <div id="table">
+      <div id="preview" class="preview"></div>div>
+    </div>div>
+  </div>div>
+  <div id="legend" class="legend"></div>div>
+  <section id="details" class="details"></section>section>
+</main>main>
+
+<footer>
+  Atomic masses are rounded standard atomic weights; values in brackets are the mass number of the most stable isotope.
+  Gas densities are in grams per liter at 0 &deg;C and 1 atm. Radii are covalent radii. Values for very heavy elements are estimates or predictions, and some discovery dates are disputed.
+</footer>footer>
+
+<script>
+const ELEMENTS = [
+  { n: 1, s: "H", name: "Hydrogen", m: "1.008", c: "nonmetal", g: 1, p: 1, cfg: "1s1", en: 2.20, ph: "gas", y: "1766", mp: -259.16, bp: -252.88, d: 0.0899, ie: 1312.0, ea: 72.8, r: 31, ox: "+1, -1", by: "Henry Cavendish", from: "Greek hydro + genes, meaning water-former", fact: "The most abundant element in the universe, making up about three quarters of all normal matter by mass." },
+  { n: 2, s: "He", name: "Helium", m: "4.0026", c: "noble-gas", g: 18, p: 1, cfg: "1s2", en: null, ph: "gas", y: "1868", mp: null, bp: -268.93, d: 0.1786, ie: 2372.3, ea: null, r: 28, ox: "0", by: "Pierre Janssen and Norman Lockyer", from: "Greek helios, meaning sun", fact: "Discovered in the light of the Sun before anyone found it on Earth." },
+  { n: 3, s: "Li", name: "Lithium", m: "6.94", c: "alkali", g: 1, p: 2, cfg: "[He] 2s1", en: 0.98, ph: "solid", y: "1817", mp: 180.50, bp: 1330, d: 0.534, ie: 520.2, ea: 59.6, r: 128, ox: "+1", by: "Johan August Arfwedson", from: "Greek lithos, meaning stone", fact: "The lightest metal, soft enough to cut with a knife and the key ingredient in rechargeable batteries." },
+  { n: 4, s: "Be", name: "Beryllium", m: "9.0122", c: "alkaline-earth", g: 2, p: 2, cfg: "[He] 2s2", en: 1.57, ph: "solid", y: "1798", mp: 1287, bp: 2469, d: 1.85, ie: 899.5, ea: null, r: 96, ox: "+2", by: "Louis-Nicolas Vauquelin", from: "The mineral beryl", fact: "A light, stiff metal used in aerospace parts and X-ray windows. Its dust is toxic to breathe." },
+  { n: 5, s: "B", name: "Boron", m: "10.81", c: "metalloid", g: 13, p: 2, cfg: "[He] 2s2 2p1", en: 2.04, ph: "solid", y: "1808", mp: 2076, bp: 3927, d: 2.34, ie: 800.6, ea: 26.7, r: 84, ox: "+3", by: "Joseph Louis Gay-Lussac, Louis Jacques Thenard, and Humphry Davy", from: "The mineral borax", fact: "Essential for plant growth. Borosilicate glass made with boron can survive sudden temperature changes." },
+  { n: 6, s: "C", name: "Carbon", m: "12.011", c: "nonmetal", g: 14, p: 2, cfg: "[He] 2s2 2p2", en: 2.55, ph: "solid", y: "ancient", mp: null, bp: 3642, sub: true, d: 2.267, ie: 1086.5, ea: 121.8, r: 76, ox: "+4, +2, -4", by: "Known since prehistory", from: "Latin carbo, meaning charcoal", fact: "The basis of all known life. Pure carbon can form diamond, graphite, or graphene." },
+  { n: 7, s: "N", name: "Nitrogen", m: "14.007", c: "nonmetal", g: 15, p: 2, cfg: "[He] 2s2 2p3", en: 3.04, ph: "gas", y: "1772", mp: -210.00, bp: -195.79, d: 1.2506, ie: 1402.3, ea: null, r: 71, ox: "+5, +3, -3", by: "Daniel Rutherford", from: "Greek nitron + genes, meaning niter-former", fact: "Makes up about 78% of the air you breathe." },
+  { n: 8, s: "O", name: "Oxygen", m: "15.999", c: "nonmetal", g: 16, p: 2, cfg: "[He] 2s2 2p4", en: 3.44, ph: "gas", y: "1774", mp: -218.79, bp: -182.96, d: 1.429, ie: 1313.9, ea: 141.0, r: 66, ox: "-2", by: "Carl Wilhelm Scheele and Joseph Priestley", from: "Greek oxys + genes, meaning acid-former", fact: "The most abundant element in Earth's crust and about 21% of the atmosphere." },
+  { n: 9, s: "F", name: "Fluorine", m: "18.998", c: "halogen", g: 17, p: 2, cfg: "[He] 2s2 2p5", en: 3.98, ph: "gas", y: "1886", mp: -219.67, bp: -188.11, d: 1.696, ie: 1681.0, ea: 328.0, r: 57, ox: "-1", by: "Henri Moissan", from: "Latin fluere, meaning to flow", fact: "The most electronegative and most reactive of all the elements." },
+  { n: 10, s: "Ne", name: "Neon", m: "20.180", c: "noble-gas", g: 18, p: 2, cfg: "[He] 2s2 2p6", en: null, ph: "gas", y: "1898", mp: -248.59, bp: -246.05, d: 0.9002, ie: 2080.7, ea: null, r: 58, ox: "0", by: "William Ramsay and Morris Travers", from: "Greek neos, meaning new", fact: "Glows a bright reddish orange inside gas-discharge signs." },
+  { n: 11, s: "Na", name: "Sodium", m: "22.990", c: "alkali", g: 1, p: 3, cfg: "[Ne] 3s1", en: 0.93, ph: "solid", y: "1807", mp: 97.79, bp: 882.94, d: 0.968, ie: 495.8, ea: 52.8, r: 166, ox: "+1", by: "Humphry Davy", from: "English soda; the symbol comes from Latin natrium", fact: "Reacts violently with water. Combined with chlorine, it makes table salt." },
+  { n: 12, s: "Mg", name: "Magnesium", m: "24.305", c: "alkaline-earth", g: 2, p: 3, cfg: "[Ne] 3s2", en: 1.31, ph: "solid", y: "1755", mp: 650, bp: 1091, d: 1.738, ie: 737.7, ea: null, r: 141, ox: "+2", by: "Joseph Black", from: "Magnesia, a district in Greece", fact: "Burns with a brilliant white light and sits at the center of every chlorophyll molecule." },
+  { n: 13, s: "Al", name: "Aluminium", m: "26.982", c: "post-transition", g: 13, p: 3, cfg: "[Ne] 3s2 3p1", en: 1.61, ph: "solid", y: "1825", mp: 660.32, bp: 2470, d: 2.70, ie: 577.5, ea: 41.8, r: 121, ox: "+3", by: "Hans Christian Oersted", from: "Latin alumen, meaning alum", fact: "The most abundant metal in Earth's crust." },
+  { n: 14, s: "Si", name: "Silicon", m: "28.085", c: "metalloid", g: 14, p: 3, cfg: "[Ne] 3s2 3p2", en: 1.90, ph: "solid", y: "1824", mp: 1414, bp: 3265, d: 2.329, ie: 786.5, ea: 134.1, r: 111, ox: "+4, -4", by: "Jons Jacob Berzelius", from: "Latin silex, meaning flint", fact: "The second most abundant element in Earth's crust and the foundation of computer chips." },
+  { n: 15, s: "P", name: "Phosphorus", m: "30.974", c: "nonmetal", g: 15, p: 3, cfg: "[Ne] 3s2 3p3", en: 2.19, ph: "solid", y: "1669", mp: 44.15, bp: 280.5, d: 1.823, ie: 1011.8, ea: 72.0, r: 107, ox: "+5, +3, -3", by: "Hennig Brand", from: "Greek phosphoros, meaning light-bearer", fact: "The first element discovered by a known person: Hennig Brand, who boiled down urine." },
+  { n: 16, s: "S", name: "Sulfur", m: "32.06", c: "nonmetal", g: 16, p: 3, cfg: "[Ne] 3s2 3p4", en: 2.58, ph: "solid", y: "ancient", mp: 115.21, bp: 444.6, d: 2.07, ie: 999.6, ea: 200.4, r: 105, ox: "+6, +4, -2", by: "Known since prehistory", from: "Latin sulphur", fact: "Known since ancient times as brimstone. Many of its compounds smell like rotten eggs." },
+  { n: 17, s: "Cl", name: "Chlorine", m: "35.45", c: "halogen", g: 17, p: 3, cfg: "[Ne] 3s2 3p5", en: 3.16, ph: "gas", y: "1774", mp: -101.5, bp: -34.04, d: 3.214, ie: 1251.2, ea: 349.0, r: 102, ox: "+7, +5, +1, -1", by: "Carl Wilhelm Scheele", from: "Greek chloros, meaning pale green", fact: "Used to disinfect drinking water and swimming pools." },
+  { n: 18, s: "Ar", name: "Argon", m: "39.95", c: "noble-gas", g: 18, p: 3, cfg: "[Ne] 3s2 3p6", en: null, ph: "gas", y: "1894", mp: -189.34, bp: -185.85, d: 1.784, ie: 1520.6, ea: null, r: 106, ox: "0", by: "Lord Rayleigh and William Ramsay", from: "Greek argos, meaning idle", fact: "Makes up almost 1% of the atmosphere and shields welds from oxygen." },
+  { n: 19, s: "K", name: "Potassium", m: "39.098", c: "alkali", g: 1, p: 4, cfg: "[Ar] 4s1", en: 0.82, ph: "solid", y: "1807", mp: 63.5, bp: 759, d: 0.862, ie: 418.8, ea: 48.4, r: 203, ox: "+1", by: "Humphry Davy", from: "English potash; the symbol comes from Latin kalium", fact: "Essential for nerve signals. BBananas are a well-known dietary source." },
+  { n: 20, s: "Ca", name: "Calcium", m: "40.078", c: "alkaline-earth", g: 2, p: 4, cfg: "[Ar] 4s2", en: 1.00, ph: "solid", y: "1808", mp: 842, bp: 1484, d: 1.55, ie: 589.8, ea: 2.37, r: 176, ox: "+2", by: "Humphry Davy", from: "Latin calx, meaning lime", fact: "The most abundant metal in the human body, found mostly in bones and teeth." },
+  { n: 21, s: "Sc", name: "Scandium", m: "44.956", c: "transition", g: 3, p: 4, cfg: "[Ar] 3d1 4s2", en: 1.36, ph: "solid", y: "1879", mp: 1541, bp: 2836, d: 2.985, ie: 633.1, ea: 18.1, r: 170, ox: "+3", by: "Lars Fredrik Nilson", from: "Latin Scandia, meaning Scandinavia", fact: "Added to aluminum alloys for lightweight bike frames and aircraft parts." },
+  { n: 22, s: "Ti", name: "Titanium", m: "47.867", c: "transition", g: 4, p: 4, cfg: "[Ar] 3d2 4s2", en: 1.54, ph: "solid", y: "1791", mp: 1668, bp: 3287, d: 4.506, ie: 658.8, ea: 7.6, r: 160, ox: "+4, +3", by: "William Gregor", from: "The Titans of Greek mythology", fact: "As strong as many steels but about 45% lighter, and very resistant to corrosion." },
+  { n: 23, s: "V", name: "Vanadium", m: "50.942", c: "transition", g: 5, p: 4, cfg: "[Ar] 3d3 4s2", en: 1.63, ph: "solid", y: "1801", mp: 1910, bp: 3407, d: 6.11, ie: 650.9, ea: 50.6, r: 153, ox: "+5, +4, +3, +2", by: "Andres Manuel del Rio", from: "Vanadis, a name of the Norse goddess Freyja", fact: "Added to steel to make tough tools like wrenches and axles." },
+  { n: 24, s: "Cr", name: "Chromium", m: "51.996", c: "transition", g: 6, p: 4, cfg: "[Ar] 3d5 4s1", en: 1.66, ph: "solid", y: "1797", mp: 1907, bp: 2671, d: 7.19, ie: 652.9, ea: 64.3, r: 139, ox: "+6, +3, +2", by: "Louis-Nicolas Vauquelin", from: "Greek chroma, meaning color", fact: "Gives stainless steel its corrosion resistance and rubies their red color." },
+  { n: 25, s: "Mn", name: "Manganese", m: "54.938", c: "transition", g: 7, p: 4, cfg: "[Ar] 3d5 4s2", en: 1.55, ph: "solid", y: "1774", mp: 1246, bp: 2061, d: 7.21, ie: 717.3, ea: null, r: 139, ox: "+7, +4, +2", by: "Johan Gottlieb Gahn", from: "Latin magnes, meaning magnet", fact: "Essential in steelmaking, where it removes oxygen and sulfur from the melt." },
+  { n: 26, s: "Fe", name: "Iron", m: "55.845", c: "transition", g: 8, p: 4, cfg: "[Ar] 3d6 4s2", en: 1.83, ph: "solid", y: "ancient", mp: 1538, bp: 2862, d: 7.874, ie: 762.5, ea: 15.7, r: 132, ox: "+3, +2", by: "Known since prehistory", from: "Anglo-Saxon iren; the symbol comes from Latin ferrum", fact: "The most common element on Earth by mass, making up much of the planet's core." },
+  { n: 27, s: "Co", name: "Cobalt", m: "58.933", c: "transition", g: 9, p: 4, cfg: "[Ar] 3d7 4s2", en: 1.88, ph: "solid", y: "1735", mp: 1495, bp: 2927, d: 8.90, ie: 760.4, ea: 63.7, r: 126, ox: "+3, +2", by: "Georg Brandt", from: "German Kobold, meaning goblin", fact: "Used in high-performance magnets and lithium-ion battery cathodes." },
+  { n: 28, s: "Ni", name: "Nickel", m: "58.693", c: "transition", g: 10, p: 4, cfg: "[Ar] 3d8 4s2", en: 1.91, ph: "solid", y: "1751", mp: 1455, bp: 2913, d: 8.908, ie: 737.1, ea: 112.0, r: 124, ox: "+2", by: "Axel Fredrik Cronstedt", from: "German Kupfernickel, meaning devil's copper", fact: "One of only a few elements that are magnetic at room temperature." },
+  { n: 29, s: "Cu", name: "Copper", m: "63.546", c: "transition", g: 11, p: 4, cfg: "[Ar] 3d10 4s1", en: 1.90, ph: "solid", y: "ancient", mp: 1084.62, bp: 2562, d: 8.96, ie: 745.5, ea: 118.4, r: 132, ox: "+2, +1", by: "Known since prehistory", from: "Latin cuprum, from the island of Cyprus", fact: "An excellent conductor of electricity, used in almost all electrical wiring." },
+  { n: 30, s: "Zn", name: "Zinc", m: "65.38", c: "transition", g: 12, p: 4, cfg: "[Ar] 3d10 4s2", en: 1.65, ph: "solid", y: "ancient", mp: 419.53, bp: 907, d: 7.14, ie: 906.4, ea: null, r: 122, ox: "+2", by: "Known since antiquity", from: "German Zink", fact: "Coats steel in a process called galvanizing to protect it from rust." },
+  { n: 31, s: "Ga", name: "Gallium", m: "69.723", c: "post-transition", g: 13, p: 4, cfg: "[Ar] 3d10 4s2 4p1", en: 1.81, ph: "solid", y: "1875", mp: 29.76, bp: 2400, d: 5.91, ie: 578.8, ea: 41.0, r: 122, ox: "+3", by: "Paul-Emile Lecoq de Boisbaudran", from: "Latin Gallia, meaning France", fact: "Melts at about 30 degrees Celsius, so it can melt in your hand." },
+  { n: 32, s: "Ge", name: "Germanium", m: "72.630", c: "metalloid", g: 14, p: 4, cfg: "[Ar] 3d10 4s2 4p2", en: 2.01, ph: "solid", y: "1886", mp: 938.25, bp: 2833, d: 5.323, ie: 762.0, ea: 119.0, r: 120, ox: "+4, +2", by: "Clemens Winkler", from: "Latin Germania, meaning Germany", fact: "Mendeleev predicted its properties before it was discovered. Used today in fiber optics." },
+  { n: 33, s: "As", name: "Arsenic", m: "74.922", c: "metalloid", g: 15, p: 4, cfg: "[Ar] 3d10 4s2 4p3", en: 2.18, ph: "solid", y: "1250", mp: null, bp: 615, sub: true, d: 5.727, ie: 947.0, ea: 78.0, r: 119, ox: "+5, +3, -3", by: "Albertus Magnus", from: "Greek arsenikon, the yellow mineral orpiment", fact: "Infamous as a poison, but also used in semiconductors like gallium arsenide." },
+  { n: 34, s: "Se", name: "Selenium", m: "78.971", c: "nonmetal", g: 16, p: 4, cfg: "[Ar] 3d10 4s2 4p4", en: 2.55, ph: "solid", y: "1817", mp: 221, bp: 685, d: 4.81, ie: 941.0, ea: 195.0, r: 120, ox: "+6, +4, -2", by: "Jons Jacob Berzelius", from: "Greek selene, meaning moon", fact: "Conducts electricity better in light than in darkness, which made early photocopiers possible." },
+  { n: 35, s: "Br", name: "Bromine", m: "79.904", c: "halogen", g: 17, p: 4, cfg: "[Ar] 3d10 4s2 4p5", en: 2.96, ph: "liquid", y: "1826", mp: -7.2, bp: 58.8, d: 3.1028, ie: 1139.9, ea: 324.6, r: 120, ox: "+5, +1, -1", by: "Antoine Jerome Balard and Carl Lowig", from: "Greek bromos, meaning stench", fact: "One of only two elements that are liquid at room temperature." },
+  { n: 36, s: "Kr", name: "Krypton", m: "83.798", c: "noble-gas", g: 18, p: 4, cfg: "[Ar] 3d10 4s2 4p6", en: 3.00, ph: "gas", y: "1898", mp: -157.37, bp: -153.42, d: 3.749, ie: 1350.8, ea: null, r: 116, ox: "+2, 0", by: "William Ramsay and Morris Travers", from: "Greek kryptos, meaning hidden", fact: "Its light was used to define the length of the meter from 1960 to 1983." },
+  { n: 37, s: "Rb", name: "Rubidium", m: "85.468", c: "alkali", g: 1, p: 5, cfg: "[Kr] 5s1", en: 0.82, ph: "solid", y: "1861", mp: 39.30, bp: 688, d: 1.532, ie: 403.0, ea: 46.9, r: 220, ox: "+1", by: "Robert Bunsen and Gustav Kirchhoff", from: "Latin rubidus, meaning deep red", fact: "Used in atomic clocks, including some aboard GPS satellites." },
+  { n: 38, s: "Sr", name: "Strontium", m: "87.62", c: "alkaline-earth", g: 2, p: 5, cfg: "[Kr] 5s2", en: 0.95, ph: "solid", y: "1790", mp: 777, bp: 1377, d: 2.64, ie: 549.5, ea: 5.03, r: 195, ox: "+2", by: "Adair Crawford", from: "Strontian, a village in Scotland", fact: "Gives fireworks and road flares their bright red color." },
+  { n: 39, s: "Y", name: "Yttrium", m: "88.906", c: "transition", g: 3, p: 5, cfg: "[Kr] 4d1 5s2", en: 1.22, ph: "solid", y: "1794", mp: 1526, bp: 3345, d: 4.472, ie: 600.0, ea: 29.6, r: 190, ox: "+3", by: "Johan Gadolin", from: "Ytterby, a village in Sweden", fact: "Named after Ytterby, a Swedish village that gave its name to four elements." },
+  { n: 40, s: "Zr", name: "Zirconium", m: "91.224", c: "transition", g: 4, p: 5, cfg: "[Kr] 4d2 5s2", en: 1.33, ph: "solid", y: "1789", mp: 1855, bp: 4409, d: 6.52, ie: 640.1, ea: 41.1, r: 175, ox: "+4", by: "Martin Heinrich Klaproth", from: "Persian zargun, meaning gold-colored", fact: "Barely absorbs neutrons, so it is used to wrap the fuel rods in nuclear reactors." },
+  { n: 41, s: "Nb", name: "Niobium", m: "92.906", c: "transition", g: 5, p: 5, cfg: "[Kr] 4d4 5s1", en: 1.6, ph: "solid", y: "1801", mp: 2477, bp: 4744, d: 8.57, ie: 652.1, ea: 86.1, r: 164, ox: "+5, +3", by: "Charles Hatchett", from: "Niobe, daughter of Tantalus in Greek mythology", fact: "Used in the superconducting magnets inside MRI machines." },
+  { n: 42, s: "Mo", name: "Molybdenum", m: "95.95", c: "transition", g: 6, p: 5, cfg: "[Kr] 4d5 5s1", en: 2.16, ph: "solid", y: "1778", mp: 2623, bp: 4639, d: 10.28, ie: 684.3, ea: 71.9, r: 154, ox: "+6, +4", by: "Carl Wilhelm Scheele", from: "Greek molybdos, meaning lead", fact: "Has one of the highest melting points of any element and makes steel stronger." },
+  { n: 43, s: "Tc", name: "Technetium", m: "[98]", c: "transition", g: 7, p: 5, cfg: "[Kr] 4d5 5s2", en: 1.9, ph: "solid", y: "1937", mp: 2157, bp: 4265, d: 11, ie: 702.0, ea: 53.0, r: 147, ox: "+7, +4", by: "Emilio Segre and Carlo Perrier", from: "Greek technetos, meaning artificial", fact: "The lightest element with no stable isotopes, widely used in medical imaging." },
+  { n: 44, s: "Ru", name: "Ruthenium", m: "101.07", c: "transition", g: 8, p: 5, cfg: "[Kr] 4d7 5s1", en: 2.2, ph: "solid", y: "1844", mp: 2334, bp: 4150, d: 12.45, ie: 710.2, ea: 101.3, r: 146, ox: "+4, +3", by: "Karl Ernst Claus", from: "Latin Ruthenia, meaning Russia", fact: "Hardens platinum and palladium alloys and is used in electrical contacts." },
+  { n: 45, s: "Rh", name: "Rhodium", m: "102.91", c: "transition", g: 9, p: 5, cfg: "[Kr] 4d8 5s1", en: 2.28, ph: "solid", y: "1803", mp: 1964, bp: 3695, d: 12.41, ie: 719.7, ea: 109.7, r: 142, ox: "+3", by: "William Hyde Wollaston", from: "Greek rhodon, meaning rose", fact: "One of the rarest and most expensive precious metals, used in catalytic converters." },
+  { n: 46, s: "Pd", name: "Palladium", m: "106.42", c: "transition", g: 10, p: 5, cfg: "[Kr] 4d10", en: 2.20, ph: "solid", y: "1803", mp: 1554.9, bp: 2963, d: 12.023, ie: 804.4, ea: 54.2, r: 139, ox: "+4, +2", by: "William Hyde Wollaston", from: "The asteroid Pallas", fact: "Can soak up about 900 times its own volume of hydrogen gas." },
+  { n: 47, s: "Ag", name: "Silver", m: "107.87", c: "transition", g: 11, p: 5, cfg: "[Kr] 4d10 5s1", en: 1.93, ph: "solid", y: "ancient", mp: 961.78, bp: 2162, d: 10.49, ie: 731.0, ea: 125.6, r: 145, ox: "+1", by: "Known since prehistory", from: "Anglo-Saxon seolfor; the symbol comes from Latin argentum", fact: "The best conductor of electricity and heat of all the metals." },
+  { n: 48, s: "Cd", name: "Cadmium", m: "112.41", c: "transition", g: 12, p: 5, cfg: "[Kr] 4d10 5s2", en: 1.69, ph: "solid", y: "1817", mp: 321.07, bp: 767, d: 8.65, ie: 867.8, ea: null, r: 144, ox: "+2", by: "Friedrich Stromeyer", from: "Latin cadmia, meaning calamine", fact: "A toxic heavy metal once common in rechargeable nickel-cadmium batteries." },
+  { n: 49, s: "In", name: "Indium", m: "114.82", c: "post-transition", g: 13, p: 5, cfg: "[Kr] 4d10 5s2 5p1", en: 1.78, ph: "solid", y: "1863", mp: 156.60, bp: 2072, d: 7.31, ie: 558.3, ea: 37.0, r: 142, ox: "+3", by: "Ferdinand Reich and Hieronymous Richter", from: "The bright indigo line in its spectrum", fact: "Indium tin oxide forms the clear conductive layer in touchscreens." },
+  { n: 50, s: "Sn", name: "Tin", m: "118.71", c: "post-transition", g: 14, p: 5, cfg: "[Kr] 4d10 5s2 5p2", en: 1.96, ph: "solid", y: "ancient", mp: 231.93, bp: 2602, d: 7.265, ie: 708.6, ea: 107.3, r: 139, ox: "+4, +2", by: "Known since antiquity", from: "Anglo-Saxon tin; the symbol comes from Latin stannum", fact: "Mixed with copper to make bronze, and used in solder for electronics." },
+  { n: 51, s: "Sb", name: "Antimony", m: "121.76", c: "metalloid", g: 15, p: 5, cfg: "[Kr] 4d10 5s2 5p3", en: 2.05, ph: "solid", y: "ancient", mp: 630.63, bp: 1635, d: 6.697, ie: 834.0, ea: 101.0, r: 139, ox: "+5, +3, -3", by: "Known since antiquity", from: "Greek anti + monos, meaning not alone; the symbol comes from Latin stibium", fact: "Used in flame retardants and in the lead alloys of car batteries." },
+  { n: 52, s: "Te", name: "Tellurium", m: "127.60", c: "metalloid", g: 16, p: 5, cfg: "[Kr] 4d10 5s2 5p4", en: 2.1, ph: "solid", y: "1782", mp: 449.51, bp: 988, d: 6.24, ie: 869.3, ea: 190.2, r: 138, ox: "+6, +4, -2", by: "Franz-Joseph Muller von Reichenstein", from: "Latin tellus, meaning earth", fact: "One of the rarest stable elements in Earth's crust, used in some solar panels." },
+  { n: 53, s: "I", name: "Iodine", m: "126.90", c: "halogen", g: 17, p: 5, cfg: "[Kr] 4d10 5s2 5p5", en: 2.66, ph: "solid", y: "1811", mp: 113.7, bp: 184.3, d: 4.933, ie: 1008.4, ea: 295.2, r: 139, ox: "+7, +5, +1, -1", by: "Bernard Courtois", from: "Greek iodes, meaning violet", fact: "Needed to make thyroid hormones, which is why it is added to table salt." },
+  { n: 54, s: "Xe", name: "Xenon", m: "131.29", c: "noble-gas", g: 18, p: 5, cfg: "[Kr] 4d10 5s2 5p6", en: 2.60, ph: "gas", y: "1898", mp: -111.75, bp: -108.10, d: 5.894, ie: 1170.4, ea: null, r: 140, ox: "+6, +4, +2, 0", by: "William Ramsay and Morris Travers", from: "Greek xenos, meaning stranger", fact: "Used in bright car headlights and as fuel for spacecraft ion thrusters." },
+  { n: 55, s: "Cs", name: "Caesium", m: "132.91", c: "alkali", g: 1, p: 6, cfg: "[Xe] 6s1", en: 0.79, ph: "solid", y: "1860", mp: 28.44, bp: 671, d: 1.93, ie: 375.7, ea: 45.5, r: 244, ox: "+1", by: "Robert Bunsen and Gustav Kirchhoff", from: "Latin caesius, meaning sky blue", fact: "Defines the second: atomic clocks count the vibrations of caesium atoms." },
+  { n: 56, s: "Ba", name: "Barium", m: "137.33", c: "alkaline-earth", g: 2, p: 6, cfg: "[Xe] 6s2", en: 0.89, ph: "solid", y: "1774", mp: 727, bp: 1845, d: 3.51, ie: 502.9, ea: 13.95, r: 215, ox: "+2", by: "Carl Wilhelm Scheele", from: "Greek barys, meaning heavy", fact: "Patients swallow barium sulfate so their digestive tract shows up on X-rays." },
+  { n: 57, s: "La", name: "Lanthanum", m: "138.91", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 5d1 6s2", en: 1.10, ph: "solid", y: "1839", mp: 920, bp: 3464, d: 6.162, ie: 538.1, ea: null, r: 207, ox: "+3", by: "Carl Gustaf Mosander", from: "Greek lanthanein, meaning to lie hidden", fact: "Used in high-quality camera lenses and nickel-metal hydride batteries." },
+  { n: 58, s: "Ce", name: "Cerium", m: "140.12", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f1 5d1 6s2", en: 1.12, ph: "solid", y: "1803", mp: 795, bp: 3443, d: 6.77, ie: 534.4, ea: null, r: 204, ox: "+4, +3", by: "Jons Jacob Berzelius and Wilhelm Hisinger", from: "The dwarf planet Ceres", fact: "The most abundant rare-earth element, used in lighter flints." },
+  { n: 59, s: "Pr", name: "Praseodymium", m: "140.91", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f3 6s2", en: 1.13, ph: "solid", y: "1885", mp: 935, bp: 3520, d: 6.77, ie: 527.0, ea: null, r: 203, ox: "+3", by: "Carl Auer von Welsbach", from: "Greek prasios didymos, meaning green twin", fact: "Used in strong magnets and in the protective glasses worn by glassblowers." },
+  { n: 60, s: "Nd", name: "Neodymium", m: "144.24", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f4 6s2", en: 1.14, ph: "solid", y: "1885", mp: 1024, bp: 3074, d:   7.01, ie: 533.1, ea: null, r: 201, ox: "+3", by: "Carl Auer von Welsbach", from: "Greek neos didymos, meaning new twin", fact: "Neodymium magnets are the strongest permanent magnets you can buy." },
+  { n: 61, s: "Pm", name: "Promethium", m: "[145]", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f5 6s2", en: 1.13, ph: "solid", y: "1945", mp: 1042, bp: 3000, d: 7.26, ie: 540.0, ea: null, r: 199, ox: "+3", by: "Jacob Marinsky, Lawrence Glendenin, and Charles Coryell", from: "Prometheus, who stole fire from the gods", fact: "The only lanthanide with no stable isotopes, so it is extremely rare in nature." },
+  { n: 62, s: "Sm", name: "Samarium", m: "150.36", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f6 6s2", en: 1.17, ph: "solid", y: "1879", mp: 1072, bp: 1900, d: 7.52, ie: 544.5, ea: null, r: 198, ox: "+3, +2", by: "Paul-Emile Lecoq de Boisbaudran", from: "The mineral samarskite", fact: "Samarium-cobalt magnets keep their strength even at high temperatures." },
+  { n: 63, s: "Eu", name: "Europium", m: "151.96", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f7 6s2", en: 1.2, ph: "solid", y: "1901", mp: 822, bp: 1529, d: 5.264, ie: 547.1, ea: null, r: 198, ox: "+3, +2", by: "Eugene-Anatole Demarcay", from: "The continent of Europe", fact: "Glows under UV light and is used in the anti-counterfeiting marks on euro banknotes." },
+  { n: 64, s: "Gd", name: "Gadolinium", m: "157.25", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f7 5d1 6s2", en: 1.20, ph: "solid", y: "1880", mp: 1312, bp: 3273, d: 7.90, ie: 593.4, ea: null, r: 196, ox: "+3", by: "Jean Charles Galissard de Marignac", from: "The mineral gadolinite, named after Johan Gadolin", fact: "Injected as a contrast agent to make MRI scans clearer." },
+  { n: 65, s: "Tb", name: "Terbium", m: "158.93", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f9 6s2", en: 1.1, ph: "solid", y: "1843", mp: 1356, bp: 3123, d: 8.23, ie: 565.8, ea: null, r: 194, ox: "+4, +3", by: "Carl Gustaf Mosander", from: "Ytterby, a village in Sweden", fact: "Produces green light in screens and lamps." },
+  { n: 66, s: "Dy", name: "Dysprosium", m: "162.50", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f10 6s2", en: 1.22, ph: "solid", y: "1886", mp: 1407, bp: 2567, d: 8.54, ie: 573.0, ea: null, r: 192, ox: "+3", by: "Paul-Emile Lecoq de Boisbaudran", from: "Greek dysprositos, meaning hard to get", fact: "Added to neodymium magnets so they keep working in hot electric motors." },
+  { n: 67, s: "Ho", name: "Holmium", m: "164.93", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f11 6s2", en: 1.23, ph: "solid", y: "1878", mp: 1461, bp: 2600, d: 8.79, ie: 581.0, ea: null, r: 192, ox: "+3", by: "Per Teodor Cleve", from: "Latin Holmia, meaning Stockholm", fact: "Has the highest magnetic moment of any naturally occurring element." },
+  { n: 68, s: "Er", name: "Erbium", m: "167.26", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f12 6s2", en: 1.24, ph: "solid", y: "1843", mp: 1529, bp: 2868, d: 9.066, ie: 589.3, ea: null, r: 189, ox: "+3", by: "Carl Gustaf Mosander", from: "Ytterby, a village in Sweden", fact: "Erbium-doped fibers boost the signals traveling through undersea internet cables." },
+  { n: 69, s: "Tm", name: "Thulium", m: "168.93", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f13 6s2", en: 1.25, ph: "solid", y: "1879", mp: 1545, bp: 1950, d: 9.32, ie: 596.7, ea: null, r: 190, ox: "+3", by: "Per Teodor Cleve", from: "Thule, a mythical land in the far north", fact: "One of the least abundant lanthanides, used in portable X-ray machines." },
+  { n: 70, s: "Yb", name: "Ytterbium", m: "173.05", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f14 6s2", en: 1.1, ph: "solid", y: "1878", mp: 824, bp: 1196, d: 6.90, ie: 603.4, ea: null, r: 187, ox: "+3, +2", by: "Jean Charles Galissard de Marignac", from: "Ytterby, a village in Sweden", fact: "Used in some of the most precise atomic clocks ever built." },
+  { n: 71, s: "Lu", name: "Lutetium", m: "174.97", c: "lanthanide", g: null, p: 6, cfg: "[Xe] 4f14 5d1 6s2", en: 1.27, ph: "solid", y: "1907", mp: 1652, bp: 3402, d: 9.841, ie: 523.5, ea: null, r: 187, ox: "+3", by: "Georges Urbain", from: "Latin Lutetia, meaning Paris", fact: "The densest and hardest lanthanide, used in PET scan detectors." },
+  { n: 72, s: "Hf", name: "Hafnium", m: "178.49", c: "transition", g: 4, p: 6, cfg: "[Xe] 4f14 5d2 6s2", en: 1.3, ph: "solid", y: "1923", mp: 2233, bp: 4603, d: 13.31, ie: 658.5, ea: null, r: 175, ox: "+4", by: "Dirk Coster and George de Hevesy", from: "Latin Hafnia, meaning Copenhagen", fact: "Absorbs neutrons very well, so it is used in nuclear reactor control rods." },
+  { n: 73, s: "Ta", name: "Tantalum", m: "180.95", c: "transition", g: 5, p: 6, cfg: "[Xe] 4f14 5d3 6s2", en: 1.5, ph: "solid", y: "1802", mp: 3017, bp: 5458, d: 16.69, ie: 761.0, ea: 31.0, r: 170, ox: "+5", by: "Anders Gustaf Ekeberg", from: "Tantalus, a figure in Greek mythology", fact: "Used to make tiny, high-capacity capacitors for phones and laptops." },
+  { n: 74, s: "W", name: "Tungsten", m: "183.84", c: "transition", g: 6, p: 6, cfg: "[Xe] 4f14 5d4 6s2", en: 2.36, ph: "solid", y: "1783", mp: 3422, bp: 5930, d: 19.25, ie: 770.0, ea: 78.8, r: 162, ox: "+6, +4", by: "Juan Jose and Fausto Elhuyar", from: "Swedish tung sten, meaning heavy stone; the symbol comes from wolfram", fact: "Has the highest melting point of any metal, about 3,422 degrees Celsius." },
+  { n: 75, s: "Re", name: "Rhenium", m: "186.21", c: "transition", g: 7, p: 6, cfg: "[Xe] 4f14 5d5 6s2", en: 1.9, ph: "solid", y: "1925", mp: 3186, bp: 5596, d: 21.02, ie: 760.0, ea: null, r: 151, ox: "+7, +4", by: "Walter Noddack, Ida Noddack, and Otto Berg", from: "Latin Rhenus, meaning the Rhine river", fact: "One of the last stable elements discovered, used in jet engine superalloys." },
+  { n: 76, s: "Os", name: "Osmium", m: "190.23", c: "transition", g: 8, p: 6, cfg: "[Xe] 4f14 5d6 6s2", en: 2.2, ph: "solid", y: "1803", mp: 3033, bp: 5012, d: 22.59, ie: 840.0, ea: 106.1, r: 144, ox: "+4", by: "Smithson Tennant", from: "Greek osme, meaning smell", fact: "The densest naturally occurring element." },
+  { n: 77, s: "Ir", name: "Iridium", m: "192.22", c: "transition", g: 9, p: 6, cfg: "[Xe] 4f14 5d7 6s2", en: 2.20, ph: "solid", y: "1803", mp: 2446, bp: 4130, d: 22.56, ie: 880.0, ea: 151.0, r: 141, ox: "+4, +3", by: "Smithson Tennant", from: "Greek iris, meaning rainbow", fact: "The most corrosion-resistant metal. A worldwide iridium-rich clay layer marks the extinction of the dinosaurs." },
+  { n: 78, s: "Pt", name: "Platinum", m: "195.08", c: "transition", g: 10, p: 6, cfg: "[Xe] 4f14 5d9 6s1", en: 2.28, ph: "solid", y: "1735", mp: 1768.3, bp: 3825, d: 21.45, ie: 870.0, ea: 205.3, r: 136, ox: "+4, +2", by: "Antonio de Ulloa", from: "Spanish platina, meaning little silver", fact: "Used in catalytic converters, lab equipment, and jewelry." },
+  { n: 79, s: "Au", name: "Gold", m: "196.97", c: "transition", g: 11, p: 6, cfg: "[Xe] 4f14 5d10 6s1", en: 2.54, ph: "solid", y: "ancient", mp: 1064.18, bp: 2970, d: 19.30, ie: 890.1, ea: 222.8, r: 136, ox: "+3, +1", by: "Known since prehistory", from: "Anglo-Saxon gold; the symbol comes from Latin aurum", fact: "So malleable that a single gram can be hammered into a sheet about a square meter wide." },
+  { n: 80, s: "Hg", name: "Mercury", m: "200.59", c: "transition", g: 12, p: 6, cfg: "[Xe] 4f14 5d10 6s2", en: 2.00, ph: "liquid", y: "ancient", mp: -38.83, bp: 356.73, d: 13.534, ie: 1007.1, ea: null, r: 132, ox: "+2, +1", by: "Known since antiquity", from: "The planet Mercury; the symbol comes from Greek hydrargyros, meaning liquid silver", fact: "The only metal that is liquid at room temperature." },
+  { n: 81, s: "Tl", name: "Thallium", m: "204.38", c: "post-transition", g: 13, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p1", en: 1.62, ph: "solid", y: "1861", mp: 304, bp: 1473, d: 11.85, ie: 589.4, ea: 36.4, r: 145, ox: "+3, +1", by: "William Crookes", from: "Greek thallos, meaning green shoot", fact: "Extremely toxic, and once used as rat poison." },
+  { n: 82, s: "Pb", name: "Lead", m: "207.2", c: "post-transition", g: 14, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p2", en: 2.33, ph: "solid", y: "ancient", mp: 327.46, bp: 1749, d: 11.34, ie: 715.6, ea: 35.1, r: 146, ox: "+4, +2", by: "Known since antiquity", from: "Anglo-Saxon lead; the symbol comes from Latin plumbum", fact: "Dense and soft, used for radiation shielding and in car batteries." },
+  { n: 83, s: "Bi", name: "Bismuth", m: "208.98", c: "post-transition", g: 15, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p3", en: 2.02, ph: "solid", y: "1753", mp: 271.4, bp: 1564, d: 9.78, ie: 703.0, ea: 91.2, r: 148, ox: "+5, +3", by: "Claude Francois Geoffroy", from: "German Wismut, meaning white mass", fact: "Forms rainbow-colored, stair-step crystals and is used in stomach medicine." },
+  { n: 84, s: "Po", name: "Polonium", m: "[209]", c: "post-transition", g: 16, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p4", en: 2.0, ph: "solid", y: "1898", mp: 254, bp: 962, d: 9.20, ie: 812.1, ea: null, r: 140, ox: "+4, +2", by: "Marie and Pierre Curie", from: "Poland, Marie Curie's home country", fact: "Discovered by Marie and Pierre Curie and named after Poland." },
+  { n: 85, s: "At", name: "Astatine", m: "[210]", c: "halogen", g: 17, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p5", en: 2.2, ph: "solid", y: "1940", mp: 302, bp: 337, d: null, ie: 899.0, ea: 233.0, r: 150, ox: "+7, +5, +1, -1", by: "Dale Corson, Kenneth MacKenzie, and Emilio Segre", from: "Greek astatos, meaning unstable", fact: "The rarest naturally occurring element. Only a tiny amount exists in Earth's crust at any moment." },
+  { n: 86, s: "Rn", name: "Radon", m: "[222]", c: "noble-gas", g: 18, p: 6, cfg: "[Xe] 4f14 5d10 6s2 6p6", en: 2.2, ph: "gas", y: "1899", mp: -71, bp: -61.7, d: 9.73, ie: 1037.0, ea: null, r: 150, ox: "+2, 0", by: "Friedrich Ernst Dorn", from: "The element radium", fact: "A radioactive gas that can build up in basements and is a leading cause of lung cancer." },
+  { n: 87, s: "Fr", name: "Francium", m: "[223]", c: "alkali", g: 1, p: 7, cfg: "[Rn] 7s1", en: 0.7, ph: "solid", y: "1939", mp: 27, bp: 677, d: null, ie: 393.0, ea: null, r: 260, ox: "+1", by: "Marguerite Perey", from: "France, where it was discovered", fact: "Extremely unstable. Its longest-lived isotope has a half-life of only about 22 minutes." },
+  { n: 88, s: "Ra", name: "Radium", m: "[226]", c: "alkaline-earth", g: 2, p: 7, cfg: "[Rn] 7s2", en: 0.9, ph: "solid", y: "1898", mp: 700, bp: 1737, d: 5.5, ie: 509.3, ea: null, r: 221, ox: "+2", by: "Marie and Pierre Curie", from: "Latin radius, meaning ray", fact: "Once painted onto watch dials to make them glow in the dark." },
+  { n: 89, s: "Ac", name: "Actinium", m: "[227]", c: "actinide", g: null, p: 7, cfg: "[Rn] 6d1 7s2", en: 1.1, ph: "solid", y: "1899", mp: 1227, bp: 3200, d: 10.07, ie: 499.0, ea: null, r: 215, ox: "+3", by: "Andre-Louis Debierne", from: "Greek aktinos, meaning ray", fact: "So radioactive that it glows a pale blue in the dark." },
+  { n: 90, s: "Th", name: "Thorium", m: "232.04", c: "actinide", g: null, p: 7, cfg: "[Rn] 6d2 7s2", en: 1.3, ph: "solid", y: "1829", mp: 1750, bp: 4788, d: 11.72, ie: 587.0, ea: null, r: 206, ox: "+4", by: "Jons Jacob Berzelius", from: "Thor, the Norse god of thunder", fact: "A possible nuclear fuel that is about three times more abundant than uranium." },
+  { n: 91, s: "Pa", name: "Protactinium", m: "231.04", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f2 6d1 7s2", en: 1.5, ph: "solid", y: "1913", mp: 1568, bp: 4027, d: 15.37, ie: 568.0, ea: null, r: 200, ox: "+5, +4", by: "Kasimir Fajans and Oswald Gohring", from: "Greek protos + actinium, meaning before actinium", fact: "One of the rarest and most expensive naturally occurring elements." },
+  { n: 92, s: "U", name: "Uranium", m: "238.03", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f3 6d1 7s2", en: 1.38, ph: "solid", y: "1789", mp: 1132.2, bp: 4131, d: 19.1, ie: 597.6, ea: null, r: 196, ox: "+6, +4", by: "Martin Heinrich Klaproth", from: "The planet Uranus", fact: "The fuel for nuclear power plants and the heaviest element found in large amounts in nature." },
+  { n: 93, s: "Np", name: "Neptunium", m: "[237]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f4 6d1 7s2", en: 1.36, ph: "solid", y: "1940", mp: 639, bp: 4174, d: 20.45, ie: 604.5, ea: null, r: 190, ox: "+5", by: "Edwin McMillan and Philip Abelson", from: "The planet Neptune", fact: "The first element heavier than uranium ever made. Named after the planet Neptune." },
+  { n: 94, s: "Pu", name: "Plutonium", m: "[244]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f6 7s2", en: 1.28, ph: "solid", y: "1940", mp: 639.4, bp: 3228, d: 19.816, ie: 584.7, ea: null, r: 187, ox: "+4", by: "Glenn Seaborg and team", from: "The dwarf planet Pluto", fact: "Used in nuclear weapons and in the power sources of deep-space probes." },
+  { n: 95, s: "Am", name: "Americium", m: "[243]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f7 7s2", en: 1.3, ph: "solid", y: "1944", mp: 1176, bp: 2607, d: 12, ie: 578.0, ea: null, r: 180, ox: "+3", by: "Glenn Seaborg and team", from: "The Americas", fact: "A tiny amount sits inside most household smoke detectors." },
+  { n: 96, s: "Cm", name: "Curium", m: "[247]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f7 6d1 7s2", en: 1.3, ph: "solid", y: "1944", mp: 1340, bp: 3110, d: 13.51, ie: 581.0, ea: null, r: 169, ox: "+3", by: "Glenn Seaborg, Ralph James, and Albert Ghiorso", from: "Marie and Pierre Curie", fact: "Named after Marie and Pierre Curie. Used in instruments on Mars rovers to analyze rocks." },
+  { n: 97, s: "Bk", name: "Berkelium", m: "[247]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f9 7s2", en: 1.3, ph: "solid", y: "1949", mp: 986, bp: 2627, d: 14.78, ie: 601.0, ea: null, r: null, ox: "+4, +3", by: "Stanley Thompson, Albert Ghiorso, and Glenn Seaborg", from: "Berkeley, California", fact: "Named after Berkeley, California, where it was first made." },
+  { n: 98, s: "Cf", name: "Californium", m: "[251]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f10 7s2", en: 1.3, ph: "solid", y: "1950", mp: 900, bp: 1470, d: 15.1, ie: 608.0, ea: null, r: null, ox: "+3", by: "Stanley Thompson, Kenneth Street, Albert Ghiorso, and Glenn Seaborg", from: "The state of California", fact: "A powerful neutron source used to start up nuclear reactors." },
+  { n: 99, s: "Es", name: "Einsteinium", m: "[252]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f11 7s2", en: 1.3, ph: "solid", y: "1952", mp: 860, bp: 996, d: 8.84, ie: 619.0, ea: null, r: null, ox: "+3", by: "Albert Ghiorso and team", from: "Albert Einstein", fact: "First found in the debris of the first hydrogen bomb test. Named after Albert Einstein." },
+  { n: 100, s: "Fm", name: "Fermium", m: "[257]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f12 7s2", en: 1.3, ph: "unknown", y: "1952", mp: 1527, bp: null, d: null, ie: 627.0, ea: null, r: null, ox: "+3", by: "Albert Ghiorso and team", from: "Enrico Fermi", fact: "Also found in hydrogen bomb debris. Named after physicist Enrico Fermi." },
+  { n: 101, s: "Md", name: "Mendelevium", m: "[258]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f13 7s2", en: 1.3, ph: "unknown", y: "1955", mp: 827, bp: null, d: null, ie: 635.0, ea: null, r: null, ox: "+3, +2", by: "Albert Ghiorso, Glenn Seaborg, and team", from: "Dmitri Mendeleev", fact: "Named after Dmitri Mendeleev, who created the periodic table." },
+  { n: 102, s: "No", name: "Nobelium", m: "[259]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f14 7s2", en: 1.3, ph: "unknown", y: "1958", mp: 827, bp: null, d: null, ie: 642.0, ea: null, r: null, ox: "+3, +2", by: "Teams in Dubna and Berkeley", from: "Alfred Nobel", fact: "Named after Alfred Nobel, founder of the Nobel Prizes." },
+  { n: 103, s: "Lr", name: "Lawrencium", m: "[266]", c: "actinide", g: null, p: 7, cfg: "[Rn] 5f14 7s2 7p1", en: 1.3, ph: "unknown", y: "1961", mp: 1627, bp: null, d: null, ie: 479.0, ea: null, r: null, ox: "+3", by: "Albert Ghiorso and team", from: "Ernest Lawrence", fact: "Named after Ernest Lawrence, inventor of the cyclotron particle accelerator." },
+  { n: 104, s: "Rf", name: "Rutherfordium", m: "[267]", c: "transition", g: 4, p: 7, cfg: "[Rn] 5f14 6d2 7s2", en: null, ph: "unknown", y: "1969", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+4", by: "Teams in Dubna and Berkeley", from: "Ernest Rutherford", fact: "Named after Ernest Rutherford, who discovered the atomic nucleus." },
+  { n: 105, s: "Db", name: "Dubnium", m: "[268]", c: "transition", g: 5, p: 7, cfg: "[Rn] 5f14 6d3 7s2", en: null, ph: "unknown", y: "1970", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+5", by: "Teams in Dubna and Berkeley", from: "Dubna, Russia", fact: "Named after Dubna, Russia, home of a major nuclear research lab." },
+  { n: 106, s: "Sg", name: "Seaborgium", m: "[269]", c: "transition", g: 6, p: 7, cfg: "[Rn] 5f14 6d4 7s2", en: null, ph: "unknown", y: "1974", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+6", by: "Albert Ghiorso and team", from: "Glenn Seaborg", fact: "Named after chemist Glenn Seaborg while he was still alive." },
+  { n: 107, s: "Bh", name: "Bohrium", m: "[270]", c: "transition", g: 7, p: 7, cfg: "[Rn] 5f14 6d5 7s2", en: null, ph: "unknown", y: "1981", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+7", by: "Peter Armbruster and Gottfried Munzenberg", from: "Niels Bohr", fact: "Named after physicist Niels Bohr." },
+  { n: 108, s: "Hs", name: "Hassium", m: "[269]", c: "transition", g: 8, p: 7, cfg: "[Rn] 5f14 6d6 7s2", en: null, ph: "unknown", y: "1984", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+8", by: "Peter Armbruster and Gottfried Munzenberg", from: "Latin Hassia, meaning Hesse in Germany", fact: "Named after the German state of Hesse." },
+  { n: 109, s: "Mt", name: "Meitnerium", m: "[278]", c: "unknown", g: 9, p: 7, cfg: "[Rn] 5f14 6d7 7s2", en: null, ph: "unknown", y: "1982", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Peter Armbruster and Gottfried Munzenberg", from: "Lise Meitner", fact: "Named after Lise Meitner, who helped discover nuclear fission." },
+  { n: 110, s: "Ds", name: "Darmstadtium", m: "[281]", c: "unknown", g: 10, p: 7, cfg: "[Rn] 5f14 6d8 7s2", en: null, ph: "unknown", y: "1994", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Sigurd Hofmann and team", from: "Darmstadt, Germany", fact: "Named after Darmstadt, Germany, where it was first made." },
+  { n: 111, s: "Rg", name: "Roentgenium", m: "[282]", c: "unknown", g: 11, p: 7, cfg: "[Rn] 5f14 6d9 7s2", en: null, ph: "unknown", y: "1994", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Sigurd Hofmann and team", from: "Wilhelm Roentgen", fact: "Named after Wilhelm Roentgen, who discovered X-rays." },
+  { n: 112, s: "Cn", name: "Copernicium", m: "[285]", c: "unknown", g: 12, p: 7, cfg: "[Rn] 5f14 6d10 7s2", en: null, ph: "unknown", y: "1996", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: "+2", by: "Sigurd Hofmann and team", from: "Nicolaus Copernicus", fact: "Named after astronomer Nicolaus Copernicus." },
+  { n: 113, s: "Nh", name: "Nihonium", m: "[286]", c: "unknown", g: 13, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p1", en: null, ph: "unknown", y: "2004", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Kosuke Morita and team at RIKEN", from: "Nihon, the Japanese word for Japan", fact: "The first element discovered in Asia. Named after Nihon, the Japanese word for Japan." },
+  { n: 114, s: "Fl", name: "Flerovium", m: "[289]", c: "unknown", g: 14, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p2", en: null, ph: "unknown", y: "1999", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Joint Institute for Nuclear Research, Dubna", from: "Physicist Georgy Flyorov", fact: "Named after the Flerov Laboratory of Nuclear Reactions in Dubna, Russia." },
+  { n: 115, s: "Mc", name: "Moscovium", m: "[290]", c: "unknown", g: 15, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p3", en: null, ph: "unknown", y: "2003", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Dubna and Lawrence Livermore collaboration", from: "The Moscow region of Russia", fact: "Named after the Moscow region of Russia." },
+  { n: 116, s: "Lv", name: "Livermorium", m: "[293]", c: "unknown", g: 16, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p4", en: null, ph: "unknown", y: "2000", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Dubna and Lawrence Livermore collaboration", from: "Lawrence Livermore National Laboratory", fact: "Named after Lawrence Livermore National Laboratory in California." },
+  { n: 117, s: "Ts", name: "Tennessine", m: "[294]", c: "unknown", g: 17, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p5", en: null, ph: "unknown", y: "2010", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Dubna, Oak Ridge, and Vanderbilt collaboration", from: "The state of Tennessee", fact: "Named after the state of Tennessee. The most recently discovered element." },
+  { n: 118, s: "Og", name: "Oganesson", m: "[294]", c: "unknown", g: 18, p: 7, cfg: "[Rn] 5f14 6d10 7s2 7p6", en: null, ph: "unknown", y: "2002", mp: null, bp: null, d: null, ie: null, ea: null, r: null, ox: null, by: "Yuri Oganessian and team", from: "Physicist Yuri Oganessian", fact: "The heaviest known element, named after Yuri Oganessian while he was still alive." }
+];
+
+const CATEGORIES = {
+  "alkali": { label: "Alkali metal", color: "#ffb3ab" },
+  "alkaline-earth": { label: "Alkaline earth metal", color: "#ffd9a8" },
+  "transition": { label: "Transition metal", color: "#fff0b3" },
+  "post-transition": { label: "Post-transition metal", color: "#c9e8c4" },
+  "metalloid": { label: "Metalloid", color: "#b9e2dd" },
+  "nonmetal": { label: "Reactive nonmetal", color: "#bfe5f7" },
+  "halogen": { label: "Halogen", color: "#cdd3f0" },
+  "noble-gas": { label: "Noble gas", color: "#e6cdee" },
+  "lanthanide": { label: "Lanthanide", color: "#f8c9db" },
+  "actinide": { label: "Actinide", color: "#ddd0cb" },
+  "unknown": { label: "Unknown properties", color: "#e3e3e3" }
+};
+
+const BLOCKS = {
+  "s": { label: "s-block", color: "#ffb3ab" },
+  "p": { label: "p-block", color: "#bfe5f7" },
+  "d": { label: "d-block", color: "#fff0b3" },
+  "f": { label: "f-block", color: "#c9e8c4" }
+};
+
+const PHASES = {
+  "solid": { label: "Solid", color: "#e3e3e3" },
+  "liquid": { label: "Liquid", color: "#bfe5f7" },
+  "gas": { label: "Gas", color: "#ffd9a8" },
+  "unknown": { label: "Unknown", color: "#ffffff" }
+};
+
+const ERAS = {
+  "ancient": { label: "Ancient", color: "#ffd9a8" },
+  "pre1800": { label: "Before 1800", color: "#fff0b3" },
+  "1800s": { label: "1800 to 1899", color: "#c9e8c4" },
+  "early1900s": { label: "1900 to 1949", color: "#bfe5f7" },
+  "modern": { label: "1950 and later", color: "#e6cdee" }
+};
+
+const CORE_SHELLS = {
+  "He": [2],
+  "Ne": [2, 8],
+  "Ar": [2, 8, 8],
+  "Kr": [2, 8, 18, 8],
+  "Xe": [2, 8, 18, 18, 8],
+  "Rn": [2, 8, 18, 32, 18, 8]
+};
+
+const NO_VALUE = "#ffffff";
+
+function getPosition(el) {
+  if (el.n >= 57 && el.n <= 71) {
+    return { row: 9, col: el.n - 54 };
+  }
+  if (el.n >= 89 && el.n <= 103) {
+    return { row: 10, col: el.n - 86 };
+  }
+  return { row: el.p, col: el.g };
+}
+
+function getBlock(el) {
+  if ((el.n >= 57 && el.n <= 71) || (el.n >= 89 && el.n <= 103)) {
+    return "f";
+  }
+  if (el.n === 2 || el.g <= 2) {
+    return "s";
+  }
+  if (el.g <= 12) {
+    return "d";
+  }
+  return "p";
+}
+
+function getEra(el) {
+  if (el.y === "ancient") {
+    return "ancient";
+  }
+  const year = parseInt(el.y, 10);
+  if (year < 1800) {
+    return "pre1800";
+  }
+  if (year < 1900) {
+    return "1800s";
+  }
+  if (year < 1950) {
+    return "early1900s";
+  }
+  return "modern";
+}
+
+function getShells(el) {
+  let shells = [];
+  const core = el.cfg.match(/\[(\w+)\]/);
+  if (core) {
+    shells = CORE_SHELLS[core[1]].slice();
+  }
+  const orbitals = el.cfg.match(/\d[spdf]\d+/g) || [];
+  orbitals.forEach(function (orbital) {
+    const level = parseInt(orbital.charAt(0), 10);
+    const count = parseInt(orbital.slice(2), 10);
+    while (shells.length < level) {
+      shells.push(0);
+    }
+    shells[level - 1] += count;
+  });
+  return shells;
+}
+
+function getMassNumber(el) {
+  if (el.m.charAt(0) === "[") {
+    return parseInt(el.m.slice(1), 10);
+  }
+  return Math.round(parseFloat(el.m));
+}
+
+function densityValue(el) {
+  if (el.d === null) {
+    return null;
+  }
+  return el.ph === "gas" ? el.d / 1000 : el.d;
+}
+
+function meltingValue(el) {
+  return el.mp;
+}
+
+function boilingValue(el) {
+  return el.sub ? null : el.bp;
+}
+
+function isRadioactive(el) {
+  if (el.n === 83) {
+    return "Yes, extremely slowly (half-life far longer than the age of the universe)";
+  }
+  if (el.n === 43 || el.n === 61 || el.n >= 84) {
+    return "Yes";
+  }
+  return "No";
+}
+
+function getOccurrence(el) {
+  if (el.n > 94) {
+    return "Synthetic only";
+  }
+  if (el.n === 43 || el.n === 61 || el.n === 85 || el.n === 87 || el.n === 93 || el.n === 94) {
+    return "Trace amounts in nature";
+  }
+  return "Found in nature";
+}
+
+function round(value, digits) {
+  return Number(value.toFixed(digits));
+}
+
+function ordinal(n) {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+}
+
+function rankOf(el, valueOf) {
+  const value = valueOf(el);
+  if (value === null) {
+    return "Not ranked";
+  }
+  const values = ELEMENTS.map(valueOf).filter(function (v) { return v !== null; });
+  const higher = values.filter(function (v) { return v > value; }).length;
+  return ordinal(higher + 1) + " highest of " + values.length;
+}
+
+function scaleColor(value, min, max) {
+  if (value === null) {
+    return NO_VALUE;
+  }
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const lightness = Math.round(95 - t * 45);
+  return "hsl(0, 0%, " + lightness + "%)";
+}
+
+function enGroup(en) {
+  if (en === null) {
+    return "none";
+  }
+  if (en < 1.5) {
+    return "low";
+  }
+  if (en < 2.5) {
+    return "mid";
+  }
+  return "high";
+}
+
+function densityGroup(el) {
+  const d = densityValue(el);
+  if (d === null) {
+    return "none";
+  }
+  if (d < 5) {
+    return "light";
+  }
+  if (d < 12) {
+    return "medium";
+  }
+  return "heavy";
+}
+
+function meltingGroup(el) {
+  if (el.mp === null) {
+    return "none";
+  }
+  if (el.mp < 25) {
+    return "below";
+  }
+  if (el.mp < 1000) {
+    return "low";
+  }
+  if (el.mp < 2000) {
+    return "mid";
+  }
+  return "high";
+}
+
+function legendFrom(table) {
+  return Object.keys(table).map(function (key) {
+    return { key: key, label: table[key].label, color: table[key].color };
+  });
+}
+
+const COLOR_MODES = {
+  category: {
+    colorOf: function (el) { return CATEGORIES[el.c].color; },
+    groupOf: function (el) { return el.c; },
+    legend: function () { return legendFrom(CATEGORIES); }
+  },
+  block: {
+    colorOf: function (el) { return BLOCKS[getBlock(el)].color; },
+    groupOf: function (el) { return getBlock(el); },
+    legend: function () { return legendFrom(BLOCKS); }
+  },
+  phase: {
+    colorOf: function (el) { return PHASES[el.ph].color; },
+    groupOf: function (el) { return el.ph; },
+    legend: function () { return legendFrom(PHASES); }
+  },
+  electronegativity: {
+    colorOf: function (el) { return scaleColor(el.en, 0.7, 3.98); },
+    groupOf: function (el) { return enGroup(el.en); },
+    legend: function () {
+      return [
+        { key: "low", label: "Below 1.5", color: scaleColor(1.0, 0.7, 3.98) },
+        { key: "mid", label: "1.5 to 2.5", color: scaleColor(2.0, 0.7, 3.98) },
+        { key: "high", label: "2.5 and above", color: scaleColor(3.2, 0.7, 3.98) },
+        { key: "none", label: "No value", color: NO_VALUE }
+      ];
+    }
+  },
+  density: {
+    colorOf: function (el) { return scaleColor(densityValue(el), 0, 22.59); },
+    groupOf: function (el) { return densityGroup(el); },
+    legend: function () {
+      return [
+        { key: "light", label: "Below 5 g/cm&sup3;", color: scaleColor(2, 0, 22.59) },
+        { key: "medium", label: "5 to 12 g/cm&sup3;", color: scaleColor(8, 0, 22.59) },
+        { key: "heavy", label: "12 g/cm&sup3; and above", color: scaleColor(18, 0, 22.59) },
+        { key: "none", label: "No value", color: NO_VALUE }
+      ];
+    }
+  },
+  melting: {
+    colorOf: function (el) { return scaleColor(el.mp, -273, 3422); },
+    groupOf: function (el) { return meltingGroup(el); },
+    legend: function () {
+      return [
+        { key: "below", label: "Below 25 &deg;C", color: scaleColor(-200, -273, 3422) },
+        { key: "low", label: "25 to 1000 &deg;C", color: scaleColor(500, -273, 3422) },
+        { key: "mid", label: "1000 to 2000 &deg;C", color: scaleColor(1500, -273, 3422) },
+        { key: "high", label: "2000 &deg;C and above", color: scaleColor(2800, -273, 3422) },
+        { key: "none", label: "No value", color: NO_VALUE }
+      ];
+    }
+  },
+  era: {
+    colorOf: function (el) { return ERAS[getEra(el)].color; },
+    groupOf: function (el) { return getEra(el); },
+    legend: function () { return legendFrom(ERAS); }
+  }
+};
+
+const state = {
+  mode: "category",
+  selected: 1,
+  highlight: null,
+  search: ""
+};
+
+const table = document.getElementById("table");
+const preview = document.getElementById("preview");
+const legend = document.getElementById("legend");
+const details = document.getElementById("details");
+const searchInput = document.getElementById("search");
+const modeSelect = document.getElementById("mode");
+const cells = new Map();
+
+function formatConfig(cfg) {
+  return cfg.replace(/([spdf])(\d+)/g, "$1<sup>$2</sup>");
+}
+
+function capitalize(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function orUnknown(value, unit) {
+  if (value === null || value === undefined) {
+    return "Unknown";
+  }
+  return value + (unit ? " " + unit : "");
+}
+
+function formatTemp(celsius) {
+  if (celsius === null) {
+    return "Unknown";
+  }
+  const kelvin = round(celsius + 273.15, 2);
+  const fahrenheit = round(celsius * 9 / 5 + 32, 1);
+  return celsius + " &deg;C &middot; " + kelvin + " K &middot; " + fahrenheit + " &deg;F";
+}
+
+function formatDensity(el) {
+  if (el.d === null) {
+    return "Unknown";
+  }
+  return el.d + (el.ph === "gas" ? " g/L" : " g/cm&sup3;");
+}
+
+function formatLiquidRange(el) {
+  if (el.sub || el.mp === null || el.bp === null) {
+    return "Unknown";
+  }
+  return round(el.bp - el.mp, 2) + " &deg;C";
+}
+
+function getSelected() {
+  return ELEMENTS.find(function (el) { return el.n === state.selected; }) || null;
+}
+
+function matchesSearch(el, query) {
+  const q = query.toLowerCase().trim();
+  if (q === "") {
+    return true;
+  }
+  return el.name.toLowerCase().includes(q) || el.s.toLowerCase() === q || String(el.n) === q;
+}
+
+function addPlaceholder(row, col, text) {
+  const box = document.createElement("div");
+  box.className = "placeholder";
+  box.style.gridRow = row;
+  box.style.gridColumn = col;
+  box.textContent = text;
+  table.appendChild(box);
+}
+
+function buildTable() {
+  ELEMENTS.forEach(function (el) {
+    const pos = getPosition(el);
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.gridRow = pos.row;
+    cell.style.gridColumn = pos.col;
+    cell.innerHTML =
+      '<span class="num">' + el.n + '</span>' +
+      '<span class="sym">' + el.s + '</span>' +
+      '<span class="name">' + el.name + '</span>' +
+      '<span class="mass">' + el.m + '</span>';
+    cell.addEventListener("click", function () { selectElement(el.n); });
+    cell.addEventListener("mouseenter", function () { showPreview(el); });
+    cell.addEventListener("mouseleave", function () { showPreview(getSelected()); });
+    table.appendChild(cell);
+    cells.set(el.n, cell);
+  });
+  addPlaceholder(6, 3, "57-71");
+  addPlaceholder(7, 3, "89-103");
+}
+
+function updateCells() {
+  const mode = COLOR_MODES[state.mode];
+  ELEMENTS.forEach(function (el) {
+    const cell = cells.get(el.n);
+    cell.style.background = mode.colorOf(el);
+    const inSearch = matchesSearch(el, state.search);
+    const inHighlight = state.highlight === null || mode.groupOf(el) === state.highlight;
+    cell.classList.toggle("dim", !(inSearch && inHighlight));
+    cell.classList.toggle("selected", el.n === state.selected);
+  });
+  renderLegend();
+}
+
+function renderLegend() {
+  const mode = COLOR_MODES[state.mode];
+  legend.innerHTML = "";
+  mode.legend().forEach(function (item) {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (state.highlight === item.key ? " active" : "");
+    chip.innerHTML = '<span class="swatch" style="background:' + item.color + '"></span>' + item.label;
+    chip.addEventListener("click", function () {
+      state.highlight = state.highlight === item.key ? null : item.key;
+      updateCells();
+    });
+    legend.appendChild(chip);
+  });
+}
+
+function showPreview(el) {
+  if (el === null) {
+    preview.innerHTML = "";
+    return;
+  }
+  const color = COLOR_MODES[state.mode].colorOf(el);
+  preview.innerHTML =
+    '<div class="preview-sym" style="background:' + color + '">' + el.s + '</div>' +
+    '<div>' +
+      '<div class="preview-name">' + el.name + '</div>' +
+      '<div class="preview-meta">' + el.n + ' &middot; ' + el.m + ' u &middot; ' + CATEGORIES[el.c].label + '</div>' +
+      '<div class="preview-meta">' + formatConfig(el.cfg) + '</div>' +
+    '</div>';
+}
+
+function renderSection(title, rows) {
+  return '<h3>' + title + '</h3>' +
+    '<dl class="props">' +
+      rows.map(function (row) {
+        return '<div><dt>' + row[0] + '</dt><dd>' + row[1] + '</dd></div>';
+      }).join("") +
+    '</dl>';
+}
+
+function renderDetails() {
+  const el = getSelected();
+  if (el === null) {
+    details.innerHTML = "";
+    return;
+  }
+
+  const shells = getShells(el);
+  const massNumber = getMassNumber(el);
+  const predicted = el.n >= 109 ? " (predicted)" : "";
+
+  const overview = [
+    ["Atomic number", el.n],
+    ["Symbol", el.s],
+    ["Atomic mass", el.m + " u"],
+    ["Category", CATEGORIES[el.c].label],
+    ["Group", el.g === null ? "None (f-block)" : el.g],
+    ["Period", el.p],
+    ["Block", getBlock(el) + "-block"],
+    ["Name origin", el.from]
+  ];
+
+  const structure = [
+    ["Protons", el.n],
+    ["Electrons", el.n],
+    ["Neutrons (approx.)", massNumber - el.n],
+    ["Mass number (approx.)", massNumber],
+    ["Electron configuration", formatConfig(el.cfg) + predicted],
+    ["Electrons per shell", shells.join(", ")],
+    ["Number of shells", shells.length],
+    ["Outer-shell electrons", shells[shells.length - 1]],
+    ["Covalent radius", orUnknown(el.r, "pm")]
+  ];
+
+  const physical = [
+    ["Phase at room temperature", capitalize(el.ph)],
+    ["Melting point", el.sub ? "Sublimes at " + formatTemp(el.bp) : formatTemp(el.mp)],
+    ["Boiling point", el.sub ? "Does not boil (sublimes)" : formatTemp(el.bp)],
+    ["Liquid range", formatLiquidRange(el)],
+    ["Density", formatDensity(el)]
+  ];
+
+  const chemical = [
+    ["Electronegativity (Pauling)", el.en === null ? "Unknown" : el.en.toFixed(2)],
+    ["First ionization energy", orUnknown(el.ie, "kJ/mol")],
+    ["Electron affinity", orUnknown(el.ea, "kJ/mol")],
+    ["Common oxidation states", orUnknown(el.ox)]
+  ];
+
+  const nuclear = [
+    ["Radioactive", isRadioactive(el)],
+    ["Occurrence", getOccurrence(el)]
+  ];
+
+  const history = [
+    ["Discovered", el.y === "ancient" ? "Known since ancient times" : el.y],
+    ["Discovered by", el.by]
+  ];
+
+  const rankings = [
+    ["Density", rankOf(el, densityValue)],
+    ["Melting point", rankOf(el, meltingValue)],
+    ["Boiling point", rankOf(el, boilingValue)],
+    ["Electronegativity", rankOf(el, function (e) { return e.en; })],
+    ["First ionization energy", rankOf(el, function (e) { return e.ie; })],
+    ["Electron affinity", rankOf(el, function (e) { return e.ea; })],
+    ["Covalent radius", rankOf(el, function (e) { return e.r; })]
+  ];
+
+  details.innerHTML =
+    '<div class="details-head">' +
+      '<div class="big-sym" style="background:' + CATEGORIES[el.c].color + '">' +
+        '<span class="num">' + el.n + '</span>' +
+        '<span class="sym">' + el.s + '</span>' +
+      '</div>' +
+      '<div>' +
+        '<h2>' + el.name + '</h2>' +
+        '<p class="fact">' + el.fact + '</p>' +
+      '</div>' +
+    '</div>' +
+    renderSection("Overview", overview) +
+    renderSection("Atomic structure", structure) +
+    renderSection("Physical properties", physical) +
+    renderSection("Chemical properties", chemical) +
+    renderSection("Nuclear", nuclear) +
+    renderSection("History", history) +
+    renderSection("Rankings", rankings) +
+    '<div class="nav">' +
+      '<button id="prev"' + (el.n === 1 ? ' disabled' : '') + '>&larr; Previous</button>' +
+      '<button id="next"' + (el.n === 118 ? ' disabled' : '') + '>Next &rarr;</button>' +
+    '</div>';
+
+  document.getElementById("prev").addEventListener("click", function () { selectElement(el.n - 1); });
+  document.getElementById("next").addEventListener("click", function () { selectElement(el.n + 1); });
+}
+
+function selectElement(n) {
+  state.selected = n;
+  updateCells();
+  renderDetails();
+  showPreview(getSelected());
+  if (window.innerWidth < 900) {
+    details.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+searchInput.addEventListener("input", function () {
+  state.search = searchInput.value;
+  updateCells();
+});
+
+searchInput.addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    const matches = ELEMENTS.filter(function (el) { return matchesSearch(el, state.search); });
+    if (matches.length > 0) {
+      selectElement(matches[0].n);
+    }
+  }
+});
+
+modeSelect.addEventListener("change", function () {
+  state.mode = modeSelect.value;
+  state.highlight = null;
+  updateCells();
+  showPreview(getSelected());
+});
+
+document.addEventListener("keydown", function (event) {
+  if (event.target === searchInput || event.target === modeSelect) {
+    return;
+  }
+  if (event.key === "ArrowRight" && state.selected < 118) {
+    selectElement(state.selected + 1);
+  } else if (event.key === "ArrowLeft" && state.selected > 1) {
+    selectElement(state.selected - 1);
+  }
+});
+
+buildTable();
+updateCells();
+showPreview(getSelected());
+renderDetails();
+</script>
+
+</body>body>
+</html>
+
+</script></footer></section></div></main></option></select></div></h1></header></body>
